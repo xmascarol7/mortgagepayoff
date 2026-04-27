@@ -452,10 +452,11 @@ let chartInstances={};
 
 function fmt(v){ return '£'+Math.round(v).toLocaleString('en-GB'); }
 
-function buildChart(canvasId, labels, pcts, colour) {
+function buildChart(canvasId, labels, pcts, colour, mortgageBal) {
   if(chartInstances[canvasId]) chartInstances[canvasId].destroy();
   const ctx=document.getElementById(canvasId).getContext('2d');
   const rgba=(a)=>`rgba(${colour},${a})`;
+  const visibleLabels=['P10–P90','P25–P75','Median pot','Mortgage balance'];
   chartInstances[canvasId]=new Chart(ctx,{
     type:'line',
     data:{
@@ -465,7 +466,9 @@ function buildChart(canvasId, labels, pcts, colour) {
         { data:pcts.p90, borderColor:'transparent', pointRadius:0, backgroundColor:rgba(0.12), fill:'-1', label:'P10–P90' },
         { data:pcts.p25, borderColor:'transparent', pointRadius:0, fill:false },
         { data:pcts.p75, borderColor:'transparent', pointRadius:0, backgroundColor:rgba(0.28), fill:'-1', label:'P25–P75' },
-        { data:pcts.p50, borderColor:`rgba(${colour},1)`, borderWidth:2.5, pointRadius:0, fill:false, label:'Median' },
+        { data:pcts.p50, borderColor:`rgba(${colour},1)`, borderWidth:2.5, pointRadius:0, fill:false, label:'Median pot' },
+        { data:mortgageBal, borderColor:'rgba(113,128,150,0.85)', borderWidth:1.8,
+          borderDash:[5,4], pointRadius:0, fill:false, label:'Mortgage balance' },
       ]
     },
     options:{
@@ -474,16 +477,17 @@ function buildChart(canvasId, labels, pcts, colour) {
       plugins:{
         legend:{
           display:true,
-          labels:{ filter:(i)=>i.text!==undefined&&['P10–P90','P25–P75','Median'].includes(i.text), font:{size:11}, boxWidth:12 }
+          labels:{ filter:(i)=>i.text&&visibleLabels.includes(i.text), font:{size:11}, boxWidth:12 }
         },
         tooltip:{
           callbacks:{
             label:(ctx)=>{
-              if(ctx.dataset.label) return ctx.dataset.label+': '+fmt(ctx.parsed.y);
+              if(ctx.dataset.label&&visibleLabels.includes(ctx.dataset.label))
+                return ctx.dataset.label+': '+fmt(ctx.parsed.y);
               return null;
             }
           },
-          filter:(i)=>['P10–P90','P25–P75','Median'].includes(i.dataset.label)
+          filter:(i)=>i.dataset.label&&visibleLabels.includes(i.dataset.label)
         }
       },
       scales:{
@@ -599,6 +603,9 @@ function runAndRender() {
   const resA = runSim({...base, strategy:'fixed'});
   const resB = runSim({...base, strategy:'glide'});
 
+  // Mortgage balance series (deterministic, same for both strategies)
+  const mortgageBal = schedule.map(m => m.balEnd);
+
   // Subtitle
   const nSims=base.nSims;
   document.getElementById('results-subtitle').textContent=
@@ -614,8 +621,8 @@ function runAndRender() {
   setBadge('badge-a', resA.insolvencyRate);
   setBadge('badge-b', resB.insolvencyRate);
 
-  buildChart('chartA', labels, resA.pcts, '49,130,206');
-  buildChart('chartB', labels, resB.pcts, '237,137,54');
+  buildChart('chartA', labels, resA.pcts, '49,130,206', mortgageBal);
+  buildChart('chartB', labels, resB.pcts, '237,137,54', mortgageBal);
 
   document.getElementById('results').style.display='block';
   document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
