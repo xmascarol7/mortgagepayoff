@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mortgage Payoff and Investment Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Inter',sans-serif;background:#f4f6fa;color:#2d3748;min-height:100vh}
+
+  .header{background:linear-gradient(135deg,#2c5282 0%,#2b6cb0 50%,#3182ce 100%);padding:40px 24px 32px;text-align:center;color:#fff;position:relative;overflow:hidden}
+  .header::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Ccircle cx='30' cy='30' r='20'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") repeat}
+  .header-inner{position:relative;max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:28px}
+  .header h1{font-size:clamp(1.4rem,3vw,2rem);font-weight:700;letter-spacing:-0.02em;line-height:1.2}
+  .header p{margin-top:8px;font-size:.95rem;opacity:.8;font-weight:300}
+  .house-svg{flex-shrink:0;width:90px;height:90px;filter:drop-shadow(0 4px 12px rgba(0,0,0,.25))}
+
+  .container{max-width:980px;margin:0 auto;padding:32px 20px 60px}
+
+  .section{background:#fff;border-radius:16px;box-shadow:0 1px 4px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.04);padding:28px;margin-bottom:20px}
+  .section-title{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#718096;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid #edf2f7;display:flex;align-items:center;gap:8px}
+  .strat-pill{display:inline-block;padding:2px 9px;border-radius:12px;font-size:.65rem;font-weight:700;letter-spacing:.04em;color:#fff}
+  .pill-1{background:#3182ce}.pill-2{background:#dd6b20}.pill-3{background:#38a169}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:20px}
+  .field{display:flex;flex-direction:column;gap:5px}
+  .field label{font-size:.85rem;font-weight:600;color:#4a5568}
+  .field .desc{font-size:.75rem;color:#a0aec0;font-style:italic;line-height:1.4;margin-top:2px}
+  input[type=number],input[type=text],select{width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:.9rem;font-family:inherit;background:#fafafa;transition:border-color .15s,box-shadow .15s;outline:none;color:#2d3748}
+  input:focus,select:focus{border-color:#3182ce;box-shadow:0 0 0 3px rgba(49,130,206,.12);background:#fff}
+  input.error{border-color:#e53e3e;box-shadow:0 0 0 3px rgba(229,62,62,.12)}
+  .prefix-wrap{position:relative}
+  .prefix-wrap span{position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:.9rem;color:#718096;pointer-events:none}
+  .prefix-wrap input{padding-left:22px}
+  .suffix-wrap{position:relative}
+  .suffix-wrap span{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:.9rem;color:#718096;pointer-events:none}
+  .suffix-wrap input{padding-right:28px}
+
+  .actions{text-align:center;margin:32px 0 24px}
+  .btn-calc{background:linear-gradient(135deg,#2c5282,#3182ce);color:#fff;border:none;padding:16px 52px;border-radius:12px;font-size:1rem;font-weight:700;letter-spacing:.03em;cursor:pointer;transition:transform .15s,box-shadow .15s;box-shadow:0 4px 14px rgba(49,130,206,.35)}
+  .btn-calc:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(49,130,206,.45)}
+  .btn-calc:active{transform:translateY(0)}
+  .btn-recalc{background:#fff;color:#2c5282;border:2px solid #2c5282;padding:12px 36px;border-radius:10px;font-size:.95rem;font-weight:600;cursor:pointer;transition:all .15s;margin-top:28px}
+  .btn-recalc:hover{background:#ebf8ff;box-shadow:0 2px 8px rgba(49,130,206,.2)}
+
+  #spinner{display:none;text-align:center;padding:48px 0}
+  .spinner-ring{display:inline-block;width:52px;height:52px;border:4px solid #e2e8f0;border-top-color:#3182ce;border-radius:50%;animation:spin 0.85s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #spinner p{margin-top:16px;color:#718096;font-size:.9rem;font-weight:500}
+
+  #results{display:none}
+  .results-header{text-align:center;margin-bottom:24px}
+  .results-header h2{font-size:1.3rem;font-weight:700;color:#2d3748}
+  .results-header p{margin-top:6px;font-size:.9rem;color:#718096}
+  .charts-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+  @media(max-width:720px){.charts-grid{grid-template-columns:1fr}}
+  .chart-card{background:#fff;border-radius:16px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.06),0 4px 16px rgba(0,0,0,.04)}
+  .chart-card h3{font-size:.85rem;font-weight:700;color:#4a5568;margin-bottom:4px}
+  .insolvency-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700;margin-bottom:14px}
+  .badge-ok{background:#c6f6d5;color:#276749}
+  .badge-warn{background:#feebc8;color:#7b341e}
+  .badge-danger{background:#fed7d7;color:#742a2a}
+  .chart-wrap{position:relative;height:280px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <svg class="house-svg" viewBox="0 0 120 110" xmlns="http://www.w3.org/2000/svg">
+      <rect x="76" y="10" width="14" height="26" rx="2" fill="#f6ad55" stroke="#ed8936" stroke-width="1.5"/>
+      <polygon points="60,5 108,48 12,48" fill="#fc8181" stroke="#f56565" stroke-width="2"/>
+      <polygon points="60,5 108,48 12,48" fill="url(#roofgrad)"/>
+      <defs>
+        <linearGradient id="roofgrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fc8181"/><stop offset="100%" stop-color="#e53e3e"/>
+        </linearGradient>
+        <linearGradient id="wallgrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#fffaf0"/><stop offset="100%" stop-color="#feebc8"/>
+        </linearGradient>
+      </defs>
+      <rect x="14" y="47" width="92" height="58" rx="3" fill="url(#wallgrad)" stroke="#f6ad55" stroke-width="1.5"/>
+      <rect x="22" y="57" width="26" height="22" rx="3" fill="#bee3f8" stroke="#63b3ed" stroke-width="1.5"/>
+      <line x1="35" y1="57" x2="35" y2="79" stroke="#63b3ed" stroke-width="1"/>
+      <line x1="22" y1="68" x2="48" y2="68" stroke="#63b3ed" stroke-width="1"/>
+      <rect x="72" y="57" width="26" height="22" rx="3" fill="#bee3f8" stroke="#63b3ed" stroke-width="1.5"/>
+      <line x1="85" y1="57" x2="85" y2="79" stroke="#63b3ed" stroke-width="1"/>
+      <line x1="72" y1="68" x2="98" y2="68" stroke="#63b3ed" stroke-width="1"/>
+      <rect x="47" y="71" width="26" height="34" rx="10" fill="#c05621" stroke="#9c4221" stroke-width="1.5"/>
+      <circle cx="69" cy="89" r="2.5" fill="#f6ad55"/>
+      <ellipse cx="60" cy="106" rx="55" ry="6" fill="#68d391" opacity="0.5"/>
+      <ellipse cx="60" cy="104" rx="50" ry="4" fill="#38a169" opacity="0.35"/>
+    </svg>
+    <div>
+      <h1>Mortgage Payoff &amp; Investment Model</h1>
+      <p>Monte Carlo simulation — compare three principled drawdown strategies</p>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Mortgage -->
+  <div class="section">
+    <div class="section-title">Mortgage</div>
+    <div class="grid">
+      <div class="field">
+        <label>Outstanding balance</label>
+        <div class="prefix-wrap"><span>£</span><input type="number" id="balance" value="497500" min="0" step="1000"></div>
+        <div class="desc">Remaining mortgage balance today</div>
+      </div>
+      <div class="field">
+        <label>Term remaining</label>
+        <div class="suffix-wrap"><span>yrs</span><input type="number" id="termYears" value="25" min="1" max="40"></div>
+        <div class="desc">Years left on the mortgage as of now</div>
+      </div>
+      <div class="field">
+        <label>Current interest rate</label>
+        <div class="suffix-wrap"><span>%</span><input type="number" id="currentRate" value="2.0" min="0" max="20" step="0.1"></div>
+        <div class="desc">Annual rate on your current fixed deal</div>
+      </div>
+      <div class="field">
+        <label>Current deal ends</label>
+        <input type="month" id="resetDate" value="2027-07">
+        <div class="desc">Month your fixed rate expires and resets</div>
+      </div>
+      <div class="field">
+        <label>Post-reset rate</label>
+        <div class="suffix-wrap"><span>%</span><input type="number" id="resetRate" value="4.0" min="0" max="20" step="0.1"></div>
+        <div class="desc">Estimated rate after the deal resets</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Windfall -->
+  <div class="section">
+    <div class="section-title">Windfall &amp; Initial Split</div>
+    <div class="grid">
+      <div class="field">
+        <label>Windfall amount</label>
+        <div class="prefix-wrap"><span>£</span><input type="number" id="windfall" value="500000" min="0" step="1000"></div>
+        <div class="desc">Total lump sum available to deploy</div>
+      </div>
+      <div class="field">
+        <label>Initial mortgage payoff</label>
+        <div class="prefix-wrap"><span>£</span><input type="number" id="initialPayoff" value="0" min="0" step="1000"></div>
+        <div class="desc">Lump sum paid off the mortgage at the outset. Reduces both the outstanding balance and the investable windfall. Set to 0 to invest the full windfall.</div>
+      </div>
+      <div class="field">
+        <label>Initial investment fraction</label>
+        <div class="suffix-wrap"><span>%</span><input type="number" id="initInvFrac" value="70" min="0" max="100" step="1"></div>
+        <div class="desc">Percentage of windfall placed into investments at the start; remainder goes to savings</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Savings & Investments -->
+  <div class="section">
+    <div class="section-title">Savings &amp; Investments</div>
+    <div class="grid">
+      <div class="field">
+        <label>Savings annual rate</label>
+        <div class="suffix-wrap"><span>%</span><input type="number" id="savingsRate" value="3.0" min="0" max="20" step="0.1"></div>
+        <div class="desc">Annual interest rate on your savings pot</div>
+      </div>
+      <div class="field">
+        <label>Investment mean return</label>
+        <div class="suffix-wrap"><span>%</span><input type="number" id="invMean" value="6.0" min="0" max="30" step="0.1"></div>
+        <div class="desc">Expected annual nominal return on investments (base case)</div>
+      </div>
+      <div class="field">
+        <label>Investment volatility</label>
+        <div class="suffix-wrap"><span>%</span><input type="number" id="invVol" value="15.0" min="0" max="60" step="0.1"></div>
+        <div class="desc">Annual standard deviation — S&amp;P 500 five-year average is ~21%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Strategy 1 -->
+  <div class="section">
+    <div class="section-title"><span class="strat-pill pill-1">Strategy 1</span> Funding Ratio</div>
+    <div class="grid">
+      <div class="field">
+        <label>Target funding ratio</label>
+        <input type="number" id="fundingTarget" value="1.30" min="1.0" max="3.0" step="0.05">
+        <div class="desc">Desired ratio of total pot to present value of remaining obligations. 1.3 = hold 30% above what you strictly owe</div>
+      </div>
+      <div class="field">
+        <label>Transition band</label>
+        <input type="number" id="fundingBand" value="0.20" min="0.05" max="1.0" step="0.05">
+        <div class="desc">Width of the zone around the target within which withdrawal fraction scales smoothly between savings- and investment-heavy</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Strategy 2 -->
+  <div class="section">
+    <div class="section-title"><span class="strat-pill pill-2">Strategy 2</span> Constant Mix</div>
+    <div class="grid">
+      <div class="field">
+        <label>Target investment fraction</label>
+        <div class="suffix-wrap"><span>%</span><input type="number" id="mixTarget" value="67" min="5" max="95" step="1"></div>
+        <div class="desc">Target share of total pot to keep in investments at all times. Withdrawals rebalance back toward this each month. Merton-derived value at 6% return, 15% vol, moderate risk aversion ≈ 67%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Strategy 3 -->
+  <div class="section">
+    <div class="section-title"><span class="strat-pill pill-3">Strategy 3</span> Bucket / Liquidity Floor</div>
+    <div class="grid">
+      <div class="field">
+        <label>Cash buffer size</label>
+        <div class="suffix-wrap"><span>mths</span><input type="number" id="bucketMonths" value="12" min="1" max="60" step="1"></div>
+        <div class="desc">Months of mortgage payments to keep in savings as a cash buffer. Draw from investments when buffer is healthy; fall back to savings when it thins</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Contributions -->
+  <div class="section">
+    <div class="section-title">Additional Contributions</div>
+    <div class="grid">
+      <div class="field">
+        <label>Contribution amount</label>
+        <div class="prefix-wrap"><span>£</span><input type="number" id="contribAmount" value="100" min="0" step="10"></div>
+        <div class="desc">Amount added per contribution event. Set to 0 to disable</div>
+      </div>
+      <div class="field">
+        <label>Target pot</label>
+        <select id="contribTarget">
+          <option value="investments" selected>Investments</option>
+          <option value="savings">Savings</option>
+        </select>
+        <div class="desc">Which pot receives the contribution</div>
+      </div>
+      <div class="field">
+        <label>Frequency</label>
+        <select id="contribFreq">
+          <option value="monthly" selected>Monthly</option>
+          <option value="quarterly">Quarterly</option>
+          <option value="annually">Annually</option>
+        </select>
+        <div class="desc">How often the contribution is made</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Simulation -->
+  <div class="section">
+    <div class="section-title">Simulation</div>
+    <div class="grid">
+      <div class="field">
+        <label>Number of simulations</label>
+        <input type="number" id="nSims" value="1000" min="100" max="3000" step="100">
+        <div class="desc">More = smoother charts, slower. 500–1000 is a good browser balance</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn-calc" onclick="calculate()">CALCULATE</button>
+  </div>
+
+  <div id="spinner">
+    <div class="spinner-ring"></div>
+    <p>Running simulations…</p>
+  </div>
+
+  <div id="results">
+    <div class="results-header">
+      <h2>Simulation Results</h2>
+      <p id="results-subtitle"></p>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <h3>Strategy 1 — Funding Ratio</h3>
+        <span id="badge-1" class="insolvency-badge"></span>
+        <div class="chart-wrap"><canvas id="chart1"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Strategy 2 — Constant Mix</h3>
+        <span id="badge-2" class="insolvency-badge"></span>
+        <div class="chart-wrap"><canvas id="chart2"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>Strategy 3 — Bucket / Liquidity Floor</h3>
+        <span id="badge-3" class="insolvency-badge"></span>
+        <div class="chart-wrap"><canvas id="chart3"></canvas></div>
+      </div>
+    </div>
+    <div style="text-align:center">
+      <button class="btn-recalc" onclick="recalculate()">↺ Recalculate</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Simulation engine
+// ─────────────────────────────────────────────────────────────────────────────
+
+function randn() {
+  let u=0,v=0;
+  while(u===0)u=Math.random();
+  while(v===0)v=Math.random();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+
+function monthlyPayment(balance, annualRate, months) {
+  if(annualRate===0) return balance/months;
+  const r=annualRate/12;
+  return balance*r/(1-Math.pow(1+r,-months));
+}
+
+function buildSchedule(balance, termMonths, startYear, startMonth,
+                        currentRate, resetYear, resetMonth, resetRate) {
+  const resetIdx=(resetYear-startYear)*12+(resetMonth-startMonth);
+  const schedule=[];
+  let bal=balance;
+  for(let m=0;m<termMonths;m++){
+    const rate=m<resetIdx?currentRate:resetRate;
+    const left=termMonths-m;
+    const pmt=monthlyPayment(bal,rate,left);
+    const intr=bal*rate/12;
+    const prin=Math.min(pmt-intr,bal);
+    schedule.push({payment:intr+prin, balEnd:bal-prin});
+    bal-=prin;
+  }
+  return schedule;
+}
+
+// Pre-compute PV of remaining obligations at each month (O(n), back-to-front)
+function buildPvObligations(schedule, savR) {
+  const n=schedule.length;
+  const pv=new Float64Array(n);
+  pv[n-1]=schedule[n-1].payment/(1+savR);
+  for(let m=n-2;m>=0;m--)
+    pv[m]=schedule[m].payment/(1+savR)+pv[m+1]/(1+savR);
+  return pv;
+}
+
+// ── Strategy dispatch ─────────────────────────────────────────────────────────
+function computeInvFrac(strategy, sav, inv, payment, invReturn, pvObligation,
+                         fundingTarget, fundingBand, mixTarget, bucketMonths) {
+  if(strategy==='funding_ratio'){
+    if(pvObligation<0.01) return 0.5;
+    const fr=(sav+inv)/pvObligation;
+    const raw=(fr-(fundingTarget-fundingBand))/(2*fundingBand);
+    return Math.max(0.05,Math.min(0.95,raw));
+  }
+  if(strategy==='constant_mix'){
+    // Rebalancing to mixTarget happens before this call in runSim,
+    // so we simply withdraw proportionally at mixTarget.
+    return Math.max(0.05,Math.min(0.95,mixTarget));
+  }
+  if(strategy==='bucket'){
+    // Check this month's return directly:
+    // Good month (inv up)  → draw from investments, leave savings buffer intact.
+    // Bad month  (inv down) → draw from savings buffer to avoid selling low.
+    // Buffer level is a secondary constraint: if savings can't cover N months of
+    // payments, fall back to investments regardless.
+    const pot=sav+inv;
+    if(pot<0.01) return 0.5;
+    if(invReturn>=0){
+      return 0.90;  // investments up — draw from them
+    } else {
+      if(sav>=bucketMonths*payment) return 0.05;  // buffer healthy — use savings
+      return Math.max(0.05,Math.min(0.95,inv/pot));  // buffer thin — forced to investments
+    }
+  }
+  return 0.5;
+}
+
+function runSim(p) {
+  const { schedule, pvObl, windfall, initInvFrac, strategy,
+          savingsRate, invMean, invVol, nSims,
+          fundingTarget, fundingBand, mixTarget, bucketMonths,
+          contribAmount, contribTarget, contribInterval } = p;
+
+  const nM=schedule.length;
+  const savR=savingsRate/12;
+  const mu=(invMean-0.5*invVol*invVol)/12;
+  const sigma=invVol/Math.sqrt(12);
+
+  const rets=new Float64Array(nSims*nM);
+  for(let i=0;i<rets.length;i++) rets[i]=Math.exp(mu+sigma*randn())-1;
+
+  const potAtMonth=Array.from({length:nM},()=>new Float64Array(nSims));
+
+  let nInsolvent=0;
+
+  for(let s=0;s<nSims;s++){
+    let sav=windfall*(1-initInvFrac);
+    let inv=windfall*initInvFrac;
+    let met=0; let alive=true;
+
+    for(let m=0;m<nM;m++){
+      if(contribAmount>0&&m%contribInterval===0){
+        if(contribTarget==='investments') inv+=contribAmount;
+        else sav+=contribAmount;
+      }
+      const r=rets[s*nM+m];
+
+      // Rebalance pots to mixTarget before withdrawal (constant_mix only)
+      if(strategy==='constant_mix'){
+        const pot=sav+inv;
+        if(pot>1){ inv=mixTarget*pot; sav=pot-inv; }
+      }
+
+      const pmt=schedule[m].payment;
+      const adj=computeInvFrac(strategy, sav, inv, pmt, r, pvObl[m],
+                                fundingTarget, fundingBand, mixTarget, bucketMonths);
+
+      let wInv=pmt*adj, wSav=pmt-wInv;
+      let tInv=Math.min(wInv,inv);
+      let short=wInv-tInv;
+      let tSav=Math.min(wSav+short,sav);
+      let gap=(wSav+short)-tSav;
+      if(gap>0.01){const ex=Math.min(gap,inv-tInv);tInv+=ex;gap-=ex;}
+      sav-=tSav; inv-=tInv;
+
+      // Apply returns AFTER withdrawal (matching Python simulate_month)
+      sav=sav*(1+savR);
+      inv=inv*(1+r);
+
+      if(gap<0.01) met++;
+      const pot=Math.max(sav+inv,0);
+      potAtMonth[m][s]=pot;
+      if(pot<0.01&&gap>=0.01){
+        alive=false;
+        for(let mm=m+1;mm<nM;mm++) potAtMonth[mm][s]=0;
+        break;
+      }
+    }
+    if(!alive||met<nM) nInsolvent++;
+  }
+
+  const pcts={p10:[],p25:[],p50:[],p75:[],p90:[]};
+  const tmp=new Float64Array(nSims);
+  for(let m=0;m<nM;m++){
+    tmp.set(potAtMonth[m]);
+    tmp.sort();
+    pcts.p10.push(tmp[Math.floor(nSims*0.10)]);
+    pcts.p25.push(tmp[Math.floor(nSims*0.25)]);
+    pcts.p50.push(tmp[Math.floor(nSims*0.50)]);
+    pcts.p75.push(tmp[Math.floor(nSims*0.75)]);
+    pcts.p90.push(tmp[Math.floor(nSims*0.90)]);
+  }
+  return {pcts, insolvencyRate:nInsolvent/nSims};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Chart helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+let chartInstances={};
+
+function fmt(v){ return '£'+Math.round(v).toLocaleString('en-GB'); }
+
+function buildChart(canvasId, labels, pcts, colour, mortgageBal) {
+  if(chartInstances[canvasId]) chartInstances[canvasId].destroy();
+  const ctx=document.getElementById(canvasId).getContext('2d');
+  const rgba=(a)=>`rgba(${colour},${a})`;
+  const visibleLabels=['P10–P90','P25–P75','Median pot','Mortgage balance'];
+  chartInstances[canvasId]=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {data:pcts.p10, borderColor:'transparent', pointRadius:0, fill:false},
+        {data:pcts.p90, borderColor:'transparent', pointRadius:0,
+          backgroundColor:rgba(0.12), fill:'-1', label:'P10–P90'},
+        {data:pcts.p25, borderColor:'transparent', pointRadius:0, fill:false},
+        {data:pcts.p75, borderColor:'transparent', pointRadius:0,
+          backgroundColor:rgba(0.28), fill:'-1', label:'P25–P75'},
+        {data:pcts.p50, borderColor:`rgba(${colour},1)`, borderWidth:2.5,
+          pointRadius:0, fill:false, label:'Median pot'},
+        {data:mortgageBal, borderColor:'rgba(113,128,150,0.85)', borderWidth:1.8,
+          borderDash:[5,4], pointRadius:0, fill:false, label:'Mortgage balance'},
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, animation:{duration:600},
+      interaction:{mode:'index', intersect:false},
+      plugins:{
+        legend:{
+          display:true,
+          labels:{filter:(i)=>i.text&&visibleLabels.includes(i.text), font:{size:10}, boxWidth:12}
+        },
+        tooltip:{
+          callbacks:{
+            label:(ctx)=>{
+              if(ctx.dataset.label&&visibleLabels.includes(ctx.dataset.label))
+                return ctx.dataset.label+': '+fmt(ctx.parsed.y);
+              return null;
+            }
+          },
+          filter:(i)=>i.dataset.label&&visibleLabels.includes(i.dataset.label)
+        }
+      },
+      scales:{
+        x:{ticks:{maxTicksLimit:6,font:{size:10}}, grid:{color:'rgba(0,0,0,.04)'}},
+        y:{
+          ticks:{callback:(v)=>'£'+Math.round(v/1000)+'k', font:{size:10}},
+          grid:{color:'rgba(0,0,0,.04)'}, min:0
+        }
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI logic
+// ─────────────────────────────────────────────────────────────────────────────
+
+function readParams() {
+  const ids=['balance','termYears','currentRate','resetDate','resetRate',
+             'windfall','initialPayoff','initInvFrac','savingsRate','invMean','invVol',
+             'fundingTarget','fundingBand','mixTarget','bucketMonths',
+             'nSims','contribAmount'];
+  let ok=true;
+  ids.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    const v=el.value.trim();
+    if(v===''){ el.classList.add('error'); ok=false; }
+    else el.classList.remove('error');
+  });
+  return ok;
+}
+
+function getVal(id){ return parseFloat(document.getElementById(id).value); }
+function getSel(id){ return document.getElementById(id).value; }
+
+function calculate(){
+  if(!readParams()) return;
+  document.getElementById('spinner').style.display='block';
+  document.getElementById('results').style.display='none';
+  document.querySelector('.btn-calc').disabled=true;
+  setTimeout(()=>{
+    try{ runAndRender(); }
+    catch(e){ alert('Error: '+e.message); console.error(e); }
+    finally{
+      document.getElementById('spinner').style.display='none';
+      document.querySelector('.btn-calc').disabled=false;
+    }
+  }, 80);
+}
+
+function recalculate(){
+  document.getElementById('results').style.display='none';
+  document.getElementById('spinner').style.display='block';
+  setTimeout(()=>{
+    try{ runAndRender(); }
+    catch(e){ alert('Error: '+e.message); }
+    finally{ document.getElementById('spinner').style.display='none'; }
+  }, 80);
+}
+
+function runAndRender(){
+  const resetParts=getSel('resetDate').split('-');
+  const resetYear=parseInt(resetParts[0]), resetMonth=parseInt(resetParts[1]);
+  const startYear=2026, startMonth=4;
+  const termMonths=Math.round(getVal('termYears'))*12;
+  const savingsRate=getVal('savingsRate')/100;
+
+  // Derived — mirrors Python: _REMAINING_BALANCE and _INVESTABLE_WINDFALL
+  const initialPayoff   = getVal('initialPayoff');
+  const remainingBalance= getVal('balance') - initialPayoff;
+  const investableWindfall = getVal('windfall') - initialPayoff;
+
+  const schedule=buildSchedule(
+    remainingBalance, termMonths,
+    startYear, startMonth,
+    getVal('currentRate')/100,
+    resetYear, resetMonth,
+    getVal('resetRate')/100
+  );
+
+  const pvObl=buildPvObligations(schedule, savingsRate/12);
+  const mortgageBal=schedule.map(m=>m.balEnd);
+
+  // Month labels
+  const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const labels=[];
+  for(let m=0;m<termMonths;m++){
+    const yr=startYear+Math.floor((startMonth-1+m)/12);
+    const mo=(startMonth-1+m)%12;
+    labels.push(mo===0||m===0?`${months[mo]} ${yr}`:(mo%6===0?`${months[mo]} ${yr}`:''));
+  }
+
+  const freqMap={monthly:1,quarterly:3,annually:12};
+  const base={
+    schedule, pvObl,
+    windfall:     investableWindfall,
+    initInvFrac:  getVal('initInvFrac')/100,
+    savingsRate,
+    invMean:      getVal('invMean')/100,
+    invVol:       getVal('invVol')/100,
+    nSims:        Math.round(getVal('nSims')),
+    fundingTarget:getVal('fundingTarget'),
+    fundingBand:  getVal('fundingBand'),
+    mixTarget:    getVal('mixTarget')/100,
+    bucketMonths: getVal('bucketMonths'),
+    contribAmount:getVal('contribAmount'),
+    contribTarget:getSel('contribTarget'),
+    contribInterval: freqMap[getSel('contribFreq')]||1,
+  };
+
+  const res1=runSim({...base, strategy:'funding_ratio'});
+  const res2=runSim({...base, strategy:'constant_mix'});
+  const res3=runSim({...base, strategy:'bucket'});
+
+  document.getElementById('results-subtitle').textContent=
+    `${base.nSims.toLocaleString()} simulations · `+
+    `${getVal('invMean')}% mean return · `+
+    `${getVal('invVol')}% volatility · `+
+    `${getVal('savingsRate')}% savings rate`;
+
+  function setBadge(id, rate){
+    const el=document.getElementById(id);
+    const pct=(rate*100).toFixed(1);
+    el.textContent=`Insolvency: ${pct}%`;
+    el.className='insolvency-badge '+(rate<0.05?'badge-ok':rate<0.20?'badge-warn':'badge-danger');
+  }
+  setBadge('badge-1', res1.insolvencyRate);
+  setBadge('badge-2', res2.insolvencyRate);
+  setBadge('badge-3', res3.insolvencyRate);
+
+  buildChart('chart1', labels, res1.pcts, '49,130,206',  mortgageBal);
+  buildChart('chart2', labels, res2.pcts, '221,107,32',  mortgageBal);
+  buildChart('chart3', labels, res3.pcts, '56,161,105',  mortgageBal);
+
+  document.getElementById('results').style.display='block';
+  document.getElementById('results').scrollIntoView({behavior:'smooth',block:'start'});
+}
+</script>
+</body>
+</html>
